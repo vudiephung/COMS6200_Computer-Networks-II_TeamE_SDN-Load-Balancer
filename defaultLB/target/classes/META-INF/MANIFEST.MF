@@ -1,0 +1,24 @@
+Manifest-Version: 1.0
+Bnd-LastModified: 1631085677513
+Build-Jdk: 11.0.11
+Built-By: sdn
+Bundle-Description: Default Load Balancer Component
+Bundle-License: http://www.apache.org/licenses/LICENSE-2.0.txt
+Bundle-ManifestVersion: 2
+Bundle-Name: defaultLB
+Bundle-SymbolicName: org.defaultLB.app.defaultLB
+Bundle-Version: 1.10.0
+Created-By: Apache Maven Bundle Plugin
+Export-Package: org.defaultLB.app;uses:="org.onosproject.cfg,org.osgi.se
+ rvice.component";version="1.10.0"
+Import-Package: org.onlab.util;version="[2.6,3)",org.onosproject.cfg;ver
+ sion="[2.6,3)",org.osgi.service.component;version="[1.4,2)",org.slf4j;v
+ ersion="[1.7,2)"
+Provide-Capability: osgi.service;objectClass:List<String>="org.defaultLB
+ .app.SomeInterface"
+Require-Capability: osgi.service;filter:="(objectClass=org.onosproject.c
+ fg.ComponentConfigService)";effective:=active,osgi.extender;filter:="(&
+ (osgi.extender=osgi.component)(version>=1.4.0)(!(version>=2.0.0)))",osg
+ i.ee;filter:="(&(osgi.ee=JavaSE)(version=11))"
+Service-Component: OSGI-INF/org.defaultLB.app.AppComponent.xml
+Tool: Bnd-4.1.0.201810181252
