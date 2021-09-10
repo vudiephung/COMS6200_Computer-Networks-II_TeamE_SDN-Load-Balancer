@@ -56,22 +56,19 @@ public class AppComponent {
     private String someProperty;
 
     // ################ Instantiates the relevant services ################
-    // Register component
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected CoreService coreService;
 
-    // Add, delete matching rules of the selector
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected PacketService packetService;
 
-    // Process incoming packets
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected FlowRuleService flowRuleService;
+
     PacketProcessor pktprocess = new DefaultLB();
 
     private ApplicationId appId;
     private PortNumber inPort, outPort;
-
-    @Reference(cardinality = ReferenceCardinality.MANDATORY)
-    protected FlowRuleService flowRuleService;
 
     Map<MacAddress, PortNumber> mytable = new HashMap<MacAddress, PortNumber>();
 
@@ -113,8 +110,7 @@ public class AppComponent {
             // Store this information to learn for next time
             mytable.put(srcMac, inPort);
 
-            // Check if the MAC address exists in the table or not. If yes,
-            // get the port and send the packet directly. If not, flood
+            // Check if the MAC address exists in the table or not
             if (mytable.containsKey(dstMac)) {
                 outPort = (PortNumber) mytable.get(dstMac);
             } else {
@@ -122,17 +118,6 @@ public class AppComponent {
                 outPort = PortNumber.FLOOD;
                 pktIn.treatmentBuilder().setOutput(outPort);
                 pktIn.send();
-
-                // Install forwarding rules (based on src and dst address) to avoid Pkt-in next time
-
-                // TrafficSelector.Builder selector = DefaultTrafficSelector.builder();
-                // selector.matchEthDst(dstMac).matchEthSrc(srcMac);
-                // TrafficTreatment treatment =
-                // DefaultTrafficTreatment.builder().setOutput(outPort).build();
-                // FlowRule flowRule =
-                // DefaultFlowRule.builder().forDevice(switchId).withSelector(selector.build())
-                // .withTreatment(treatment).withPriority(50000).fromApp(appId).makePermanent().build();
-                // flowRuleService.applyFlowRules(flowRule);
             }
 
             if (outPort != PortNumber.FLOOD) {
