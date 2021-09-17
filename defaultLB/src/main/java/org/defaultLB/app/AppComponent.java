@@ -1,59 +1,38 @@
 package org.defaultLB.app;
 
-import org.onosproject.cfg.ComponentConfigService;
-import org.osgi.service.component.ComponentContext;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import org.onlab.packet.Ethernet;
+import org.onlab.packet.MacAddress;
+import org.onosproject.core.ApplicationId;
+import org.onosproject.core.CoreService;
+import org.onosproject.net.DeviceId;
+import org.onosproject.net.Port;
+import org.onosproject.net.PortNumber;
+import org.onosproject.net.device.DeviceService;
+import org.onosproject.net.flow.DefaultTrafficSelector;
+import org.onosproject.net.flow.FlowRuleService;
+import org.onosproject.net.flow.TrafficSelector;
+import org.onosproject.net.packet.InboundPacket;
+import org.onosproject.net.packet.PacketContext;
+import org.onosproject.net.packet.PacketPriority;
+import org.onosproject.net.packet.PacketProcessor;
+import org.onosproject.net.packet.PacketService;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
-import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.onlab.packet.MacAddress;
-import org.onosproject.net.flow.DefaultFlowRule;
-import org.onosproject.net.flow.DefaultTrafficTreatment;
-import org.onosproject.net.flow.FlowRule;
-import org.onosproject.net.flow.TrafficTreatment;
-
-import static org.onlab.util.Tools.get;
-import java.util.Dictionary;
-import java.util.Properties;
-
-//#################### New Imports  #######################
-// In order to use reference and deal with the core service
-import org.onosproject.core.CoreService;
-import org.onosproject.core.ApplicationId;
-
-// In order to register for the pkt-in event
-import org.onosproject.net.packet.PacketProcessor;
-import org.onosproject.net.packet.PacketContext;
-import org.onosproject.net.packet.PacketService;
-
-// In order you install matching rules (traffic selector)
-import org.onosproject.net.flow.DefaultTrafficSelector;
-import org.onosproject.net.flow.TrafficSelector;
-import org.onosproject.net.flow.FlowRuleService;
-
-// In order to get access to packet header
-import org.onlab.packet.Ethernet;
-import org.onosproject.net.packet.PacketPriority;
-import java.util.Optional;
-
-// In order to access Pkt-In header
-import org.onosproject.net.PortNumber;
-import org.onosproject.net.packet.InboundPacket;
-import org.onosproject.net.DeviceId;
-import java.util.Map;
-import java.util.HashMap;
 
 @Component(immediate = true)
 public class AppComponent {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
-
-    /** Some configurable property. */
-    private String someProperty;
 
     // ################ Instantiates the relevant services ################
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
@@ -65,12 +44,12 @@ public class AppComponent {
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected FlowRuleService flowRuleService;
 
-    PacketProcessor pktprocess = new DefaultLB();
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    private DeviceService deviceService;
 
+    PacketProcessor pktprocess = new DefaultLB();
     private ApplicationId appId;
     private PortNumber inPort, outPort;
-
-    Map<MacAddress, PortNumber> mytable = new HashMap<MacAddress, PortNumber>();
 
     @Activate
     protected void activate() {
@@ -92,6 +71,36 @@ public class AppComponent {
         log.info("Default LB started");
     }
 
+    public class RoundRobin {
+        Set<PortNumber> outPorts;
+        Set<PortNumber> visited;
+        PortNumber outPort;
+
+        public RoundRobin(Set<PortNumber> outPorts) {
+            this.outPorts = outPorts;
+            this.visited = new HashSet<PortNumber>();
+        }
+
+        PortNumber out() {
+            if (visited.size() == 0) {
+                outPort = outPorts.iterator().next();
+                visited.add(outPort);
+            } else {
+                for (PortNumber p : outPorts) {
+                    if (!visited.contains(p)) {
+                        outPort = p;
+                        visited.add(p);
+                        if (visited.equals(outPorts)) {
+                            visited.clear();
+                        }
+                        break;
+                    }
+                }
+            }
+            return outPort;
+        }
+    }
+
     // Override the packetProcessor class
     private class DefaultLB implements PacketProcessor {
         @Override
@@ -103,27 +112,24 @@ public class AppComponent {
             MacAddress dstMac = pkt.parsed().getDestinationMAC();
             MacAddress srcMac = pkt.parsed().getSourceMAC();
             DeviceId switchId = pkt.receivedFrom().deviceId();
-
-            // Learn the MAC address of the sender
             inPort = pkt.receivedFrom().port();
 
-            // Store this information to learn for next time
-            mytable.put(srcMac, inPort);
+            // Get switch ports
+            List<Port> switchPorts = deviceService.getPorts(switchId);
 
-            // Check if the MAC address exists in the table or not
-            if (mytable.containsKey(dstMac)) {
-                outPort = (PortNumber) mytable.get(dstMac);
-            } else {
-                // ********* outPort should be returned from specific LB algorithm instead of flooding *******
-                outPort = PortNumber.FLOOD;
-                pktIn.treatmentBuilder().setOutput(outPort);
-                pktIn.send();
+            // outPorts is the set of possible output PortNumber (excluding the incoming port and the LOCAL port)
+            Set<PortNumber> outPorts = new HashSet<PortNumber>();
+            for (Port p : switchPorts) {
+                if (p.isEnabled() && !p.number().equals(inPort) && !p.number().equals(PortNumber.LOCAL)) {
+                    outPorts.add(p.number());
+                }
             }
 
-            if (outPort != PortNumber.FLOOD) {
-                pktIn.treatmentBuilder().setOutput(outPort);
-                pktIn.send();
-            }
+            RoundRobin rr = new RoundRobin(outPorts);
+            outPort = rr.out();
+
+            pktIn.treatmentBuilder().setOutput(outPort);
+            pktIn.send();
         }
     }
 

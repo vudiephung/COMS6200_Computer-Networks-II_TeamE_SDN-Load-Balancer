@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Bnd-LastModified: 1631285743321
+Bnd-LastModified: 1631895611558
 Build-Jdk: 11.0.11
 Built-By: sdn
 Bundle-Description: Default Load Balancer Component
@@ -10,17 +10,20 @@ Bundle-SymbolicName: org.defaultLB.app.defaultLB
 Bundle-Version: 1.10.0
 Created-By: Apache Maven Bundle Plugin
 Export-Package: org.defaultLB.app;uses:="org.onosproject.core,org.onospr
- oject.net.flow,org.onosproject.net.packet";version="1.10.0"
+ oject.net,org.onosproject.net.flow,org.onosproject.net.packet";version=
+ "1.10.0"
 Import-Package: org.onlab.packet;version="[2.6,3)",org.onosproject.core;
  version="[2.6,3)",org.onosproject.net;version="[2.6,3)",org.onosproject
- .net.flow;version="[2.6,3)",org.onosproject.net.packet;version="[2.6,3)
- ",org.slf4j;version="[1.7,2)"
+ .net.device;version="[2.6,3)",org.onosproject.net.flow;version="[2.6,3)
+ ",org.onosproject.net.packet;version="[2.6,3)",org.slf4j;version="[1.7,
+ 2)"
 Require-Capability: osgi.service;filter:="(objectClass=org.onosproject.c
  ore.CoreService)";effective:=active,osgi.service;filter:="(objectClass=
- org.onosproject.net.flow.FlowRuleService)";effective:=active,osgi.servi
- ce;filter:="(objectClass=org.onosproject.net.packet.PacketService)";eff
- ective:=active,osgi.extender;filter:="(&(osgi.extender=osgi.component)(
- version>=1.4.0)(!(version>=2.0.0)))",osgi.ee;filter:="(&(osgi.ee=JavaSE
- )(version=11))"
+ org.onosproject.net.device.DeviceService)";effective:=active,osgi.servi
+ ce;filter:="(objectClass=org.onosproject.net.flow.FlowRuleService)";eff
+ ective:=active,osgi.service;filter:="(objectClass=org.onosproject.net.p
+ acket.PacketService)";effective:=active,osgi.extender;filter:="(&(osgi.
+ extender=osgi.component)(version>=1.4.0)(!(version>=2.0.0)))",osgi.ee;f
+ ilter:="(&(osgi.ee=JavaSE)(version=11))"
 Service-Component: OSGI-INF/org.defaultLB.app.AppComponent.xml
 Tool: Bnd-4.1.0.201810181252
