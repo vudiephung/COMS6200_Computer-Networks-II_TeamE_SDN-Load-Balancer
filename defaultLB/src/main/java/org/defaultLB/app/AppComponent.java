@@ -47,7 +47,8 @@ public class AppComponent {
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     private DeviceService deviceService;
 
-    PacketProcessor pktprocess = new DefaultLB();
+    RoundRobin rr = new RoundRobin();
+    PacketProcessor pktprocess = new DefaultLB(rr);
     private ApplicationId appId;
     private PortNumber inPort, outPort;
 
@@ -71,38 +72,16 @@ public class AppComponent {
         log.info("Default LB started");
     }
 
-    public class RoundRobin {
-        Set<PortNumber> outPorts;
-        Set<PortNumber> visited;
-        PortNumber outPort;
-
-        public RoundRobin(Set<PortNumber> outPorts) {
-            this.outPorts = outPorts;
-            this.visited = new HashSet<PortNumber>();
-        }
-
-        PortNumber out() {
-            if (visited.size() == 0) {
-                outPort = outPorts.iterator().next();
-                visited.add(outPort);
-            } else {
-                for (PortNumber p : outPorts) {
-                    if (!visited.contains(p)) {
-                        outPort = p;
-                        visited.add(p);
-                        if (visited.equals(outPorts)) {
-                            visited.clear();
-                        }
-                        break;
-                    }
-                }
-            }
-            return outPort;
-        }
-    }
-
     // Override the packetProcessor class
     private class DefaultLB implements PacketProcessor {
+
+        PortingAlgorithm algorithm;
+
+        public DefaultLB(PortingAlgorithm algorithm) {
+            super();
+            this.algorithm = algorithm;
+        }
+
         @Override
         public void process(PacketContext pktIn) {
 
@@ -125,11 +104,14 @@ public class AppComponent {
                 }
             }
 
-            RoundRobin rr = new RoundRobin(outPorts);
-            outPort = rr.out();
+            outPort = algorithm.out(outPorts);
 
             pktIn.treatmentBuilder().setOutput(outPort);
             pktIn.send();
+        }
+
+        public void setPortingAlgorithm(PortingAlgorithm portingAlgorithm) {
+            this.algorithm = portingAlgorithm;
         }
     }
 
