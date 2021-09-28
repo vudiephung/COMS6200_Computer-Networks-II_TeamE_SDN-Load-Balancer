@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-Bnd-LastModified: 1631895611558
+Bnd-LastModified: 1632833234329
 Build-Jdk: 11.0.11
 Built-By: sdn
 Bundle-Description: Default Load Balancer Component
@@ -9,9 +9,9 @@ Bundle-Name: defaultLB
 Bundle-SymbolicName: org.defaultLB.app.defaultLB
 Bundle-Version: 1.10.0
 Created-By: Apache Maven Bundle Plugin
-Export-Package: org.defaultLB.app;uses:="org.onosproject.core,org.onospr
- oject.net,org.onosproject.net.flow,org.onosproject.net.packet";version=
- "1.10.0"
+Export-Package: org.defaultLB.app;uses:="org.onlab.packet,org.onosprojec
+ t.core,org.onosproject.net,org.onosproject.net.flow,org.onosproject.net
+ .packet";version="1.10.0"
 Import-Package: org.onlab.packet;version="[2.6,3)",org.onosproject.core;
  version="[2.6,3)",org.onosproject.net;version="[2.6,3)",org.onosproject
  .net.device;version="[2.6,3)",org.onosproject.net.flow;version="[2.6,3)

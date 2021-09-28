@@ -1,9 +1,10 @@
 package org.defaultLB.app;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.MacAddress;
@@ -72,6 +73,9 @@ public class AppComponent {
         log.info("Default LB started");
     }
 
+    // Get set of output PortNumber(s) corresponding to src MAC address
+    Map<MacAddress, ArrayList<PortNumber>> outPortsTbl = new HashMap<MacAddress, ArrayList<PortNumber>>();
+
     // Override the packetProcessor class
     private class DefaultLB implements PacketProcessor {
 
@@ -93,18 +97,34 @@ public class AppComponent {
             DeviceId switchId = pkt.receivedFrom().deviceId();
             inPort = pkt.receivedFrom().port();
 
-            // Get switch ports
-            List<Port> switchPorts = deviceService.getPorts(switchId);
+            if (!outPortsTbl.containsKey(srcMac)) {
+                // Get switch ports
+                List<Port> switchPorts = deviceService.getPorts(switchId);
 
-            // outPorts is the set of possible output PortNumber (excluding the incoming port and the LOCAL port)
-            Set<PortNumber> outPorts = new HashSet<PortNumber>();
-            for (Port p : switchPorts) {
-                if (p.isEnabled() && !p.number().equals(inPort) && !p.number().equals(PortNumber.LOCAL)) {
-                    outPorts.add(p.number());
+                // outPorts is the set of possible output PortNumber (excluding the incoming
+                // port and the LOCAL port)
+                ArrayList<PortNumber> outPorts = new ArrayList<PortNumber>();
+                for (Port p : switchPorts) {
+                    if (p.isEnabled() && !p.number().equals(inPort) && !p.number().equals(PortNumber.LOCAL)) {
+                        outPorts.add(p.number());
+                    }
                 }
+                outPortsTbl.put(srcMac, outPorts);
             }
 
-            outPort = algorithm.out(outPorts);
+            if (pkt.parsed().getEtherType() == Ethernet.TYPE_ARP) {
+                outPort = PortNumber.FLOOD;
+            } else {
+                // Packet receives from host h1
+                if (inPort.toLong() == 1) {
+                    outPort = algorithm.out(outPortsTbl.get(srcMac), srcMac, dstMac);
+                    // Debugging purpose, should delete later
+                    log.info("----dst mac address ----" + dstMac);
+                    log.info("----dst port -----" + outPort);
+                } else {
+                    outPort = PortNumber.FLOOD;
+                }
+            }
 
             pktIn.treatmentBuilder().setOutput(outPort);
             pktIn.send();
