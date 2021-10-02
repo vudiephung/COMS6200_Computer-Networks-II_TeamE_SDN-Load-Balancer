@@ -1,5 +1,0 @@
-org/defaultLB/app/AppComponent.class
-org/defaultLB/app/RoundRobin.class
-org/defaultLB/app/SomeInterface.class
-org/defaultLB/app/AppComponent$DefaultLB.class
-org/defaultLB/app/PortingAlgorithm.class
