@@ -1,9 +1,8 @@
 package org.defaultLB.app;
 
-import org.onlab.packet.MacAddress;
 import org.onosproject.net.PortNumber;
 
-import java.util.ArrayList;
+import java.util.Set;
 
 public interface PortingAlgorithm {
 
@@ -12,6 +11,6 @@ public interface PortingAlgorithm {
      * @param outPorts
      * @return
      */
-    public PortNumber out(ArrayList<PortNumber> outPorts, MacAddress srcMac, MacAddress dstMac);
+    PortNumber out(Set<PortNumber> outPorts);
 
 }

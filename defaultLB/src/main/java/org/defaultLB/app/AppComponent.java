@@ -168,7 +168,7 @@ public class AppComponent {
 
                 if(!serverAddresses.containsValue(sourceMacAddress)) {
                     // This is a client request
-                    PortNumber targetServerPort = algorithm.out(List.copyOf(serverAddresses.keySet()));
+                    PortNumber targetServerPort = algorithm.out(serverAddresses.keySet());
 
                     if (targetServerPort == null) {
                         return;
