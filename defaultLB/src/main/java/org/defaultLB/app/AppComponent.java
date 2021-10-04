@@ -42,7 +42,10 @@ public class AppComponent {
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     private DeviceService deviceService;
 
+    // LB algorithms initialisation
     RoundRobin rr = new RoundRobin();
+    RandomisedStatic rs = new RandomisedStatic();
+
     PacketProcessor pktprocess = new DefaultLB(rr);
     private ApplicationId appId;
     private PortNumber inPort, outPort;
@@ -67,7 +70,6 @@ public class AppComponent {
         log.info("Default LB started");
     }
 
-    // Get set of output PortNumber(s) corresponding to src MAC address
     private final Map<PortNumber, MacAddress> serverAddresses = new HashMap<>();
     private final HashMap<IpAddress, MacAddress> clientMap = new HashMap<IpAddress, MacAddress>();
 
