@@ -3,7 +3,7 @@ This load balancer implements several load balancing algorithms all of which det
 
 ## Architecture
 
-
+![Architecture of Load Balancer](/img/architecture.png)
 
 ## Processes
 
