@@ -5,6 +5,11 @@ This load balancer implements several load balancing algorithms all of which det
 
 ![Architecture of Load Balancer](/img/architecture.png)
 
+Where:
+* h1 is a client connecting to the setup. There may be several clients connecting to the load balancer concurrently.
+* s1 is the switch / load balancer.
+* v1, v2 and v3 are the servers being load balanced. There can be any number of these servers being load balanced.
+
 ## Processes
 
 ### ARP
