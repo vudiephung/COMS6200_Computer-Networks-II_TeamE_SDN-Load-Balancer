@@ -38,7 +38,7 @@ By default, the load balancer will always select port 2 to send packets to. As a
 
 ### Round Robin
 
-In Round Robin (RR), the load balancer repeatedly iterates through a list of ports to send HTTP requests to.
+In Round Robin (RR), the load balancer repeatedly iterates through a list of ports to select a port.
 
 ### Randomised Static
 
