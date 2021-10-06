@@ -1,5 +1,8 @@
 package org.defaultLB.app;
 
+import org.onlab.packet.*;
+import org.onosproject.core.ApplicationId;
+import org.onosproject.net.flow.*;
 import org.onosproject.net.PortNumber;
 
 import java.util.Iterator;
@@ -14,7 +17,7 @@ public class RoundRobin implements PortingAlgorithm {
     }
 
     @Override
-    public PortNumber out(Set<PortNumber> outPorts) {
+    public PortNumber out(Set<PortNumber> outPorts, FlowRuleService flowRuleService, ApplicationId appId) {
         if (outPorts == null || outPorts.size() == 0) {
             return null;
         } else if (iterator == null || !iterator.hasNext()) {

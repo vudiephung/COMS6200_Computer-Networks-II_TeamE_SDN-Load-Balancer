@@ -45,8 +45,10 @@ public class AppComponent {
     // LB algorithms initialisation
     RoundRobin rr = new RoundRobin();
     RandomisedStatic rs = new RandomisedStatic();
+    PacketBased pb = new PacketBased();
 
-    PacketProcessor pktprocess = new DefaultLB(rr);
+    //PacketProcessor pktprocess = new DefaultLB(rr); // use for rr
+    PacketProcessor pktprocess = new DefaultLB(pb); // use for pb
     private ApplicationId appId;
     private PortNumber inPort, outPort;
 
@@ -170,7 +172,8 @@ public class AppComponent {
 
                 if(!serverAddresses.containsValue(sourceMacAddress)) {
                     // This is a client request
-                    PortNumber targetServerPort = algorithm.out(serverAddresses.keySet());
+                    // PortNumber targetServerPort = algorithm.out(serverAddresses.keySet(), flowRuleService, appId); // use for rr
+                    PortNumber targetServerPort = algorithm.out(serverAddresses.keySet(), flowRuleService, appId); // use for pb
 
                     if (targetServerPort == null) {
                         return;
