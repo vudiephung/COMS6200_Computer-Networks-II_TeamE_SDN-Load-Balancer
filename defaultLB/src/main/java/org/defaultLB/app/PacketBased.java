@@ -1,13 +1,12 @@
 package org.defaultLB.app;
 
 import org.onlab.packet.*;
-import org.onosproject.core.ApplicationId;
 import org.onosproject.net.flow.*;
-import org.onosproject.net.flow.criteria.*;
-import org.onosproject.net.flow.criteria.Criterion.*;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.DeviceId;
+import org.onosproject.net.device.*;
+import org.onosproject.net.device.DeviceService;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -16,7 +15,6 @@ import java.util.Set;
 
 public class PacketBased implements PortingAlgorithm {
     Iterator<PortNumber> iterator;
-    ArrayList<FlowEntry> flowEntryList;
     Map<PortNumber, Integer> portThresholds;
 
     public PacketBased() {
@@ -24,46 +22,45 @@ public class PacketBased implements PortingAlgorithm {
     }
 
     @Override
-    public PortNumber out(Set<PortNumber> outPorts, FlowRuleService flowRuleService, ApplicationId appId) {
+    public PortNumber out(Map<PortNumber, MacAddress> serverAddresses, DeviceService deviceService, DeviceId switchId) {
+        Set<PortNumber> outPorts = serverAddresses.keySet();
+
         if (outPorts == null || outPorts.size() == 0) {
             return null;
         }
         iterator = List.copyOf(outPorts).iterator();
         
-        if (flowRuleService == null || flowRuleService.getFlowRuleCount() == 0) {
+        if (deviceService == null || deviceService.getPortStatistics(switchId).size() == 0) {
             return null;
         }
         portThresholds = new HashMap<>();
 
         // count how many flow rules exist for each server, to update map of port thresholds
-        for (FlowRule rule : flowRuleService.getFlowEntriesById(appId)) {
-            TrafficSelector selector = rule.selector();
-            PortCriterion criterion = (PortCriterion) selector.getCriterion(Criterion.Type.TCP_DST);
+        for (PortStatistics stat : deviceService.getPortStatistics(switchId)) {
+            Iterator<PortNumber> serverAddressesIterator = outPorts.iterator();
 
-            if (criterion != null) {
-                PortNumber criteria = criterion.port();
+            while (serverAddressesIterator.hasNext()) {
+                PortNumber checkPort = serverAddressesIterator.next();
 
-                if (criteria != null) {
-                    if (!portThresholds.containsKey(criteria)) {
-                        portThresholds.put(criteria, 1);
+                if (stat.portNumber() == checkPort) {
+                    if (!portThresholds.containsKey(checkPort)) {
+                        portThresholds.put(checkPort, 1);
                     } else {
-                        portThresholds.replace(criteria, portThresholds.get(criteria) + 1);
+                        portThresholds.replace(checkPort, portThresholds.get(checkPort) + 1);
                     }
-                }
+                }                
             }
         }
 
         while (iterator.hasNext()) {
             PortNumber port = iterator.next();
 
-            if (!portThresholds.containsKey(port)) {
-                portThresholds.put(port, 1);
-                return port;
-            } else if (portThresholds.get(port) < 3) {  // change number accordingly to set port threshold
-                portThresholds.replace(port, portThresholds.get(port)+1);
+            if (portThresholds.containsKey(port) && portThresholds.get(port) < 1) {
                 return port;
             }
         }
+
+        iterator = List.copyOf(outPorts).iterator();
         return iterator.next();
     }
 }

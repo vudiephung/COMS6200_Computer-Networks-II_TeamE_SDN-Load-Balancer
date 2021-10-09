@@ -172,8 +172,7 @@ public class AppComponent {
 
                 if(!serverAddresses.containsValue(sourceMacAddress)) {
                     // This is a client request
-                    // PortNumber targetServerPort = algorithm.out(serverAddresses.keySet(), flowRuleService, appId); // use for rr
-                    PortNumber targetServerPort = algorithm.out(serverAddresses.keySet(), flowRuleService, appId); // use for pb
+                    PortNumber targetServerPort = algorithm.out(serverAddresses, deviceService, switchId);
 
                     if (targetServerPort == null) {
                         return;
