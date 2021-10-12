@@ -49,6 +49,9 @@ In Round Robin (RR), the load balancer repeatedly iterates through a list of por
 
 In Randomised Static, the load balancer simply selects a port randomly.
 
-### IP-Based Hashmap
+### PacketHash
 
-To select a chosen port, the IP-address of the packet will be hashed using the Java hashCode() and modulo. This is then used to select a port from a list of ports. As a result, packets with the same IP will be assigned to the same server.
+To select a chosen port, the source IP address and TCP port of the packet will be hashed using the Java hashCode() and modulo. This is then used to select a port from a list of ports. As a result, packets with the same IP will be assigned to the same server.
+
+### PacketBased
+
