@@ -1,11 +1,7 @@
 package org.defaultLB.app;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import org.onlab.packet.*;
 import org.onosproject.core.ApplicationId;
@@ -42,13 +38,8 @@ public class AppComponent {
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     private DeviceService deviceService;
 
-    // LB algorithms initialisation
-    RoundRobin rr = new RoundRobin();
-    RandomisedStatic rs = new RandomisedStatic();
-    PacketBased pb = new PacketBased();
+    PacketProcessor pktprocess = new RandomisedStatic();
 
-    //PacketProcessor pktprocess = new DefaultLB(rr); // use for rr
-    PacketProcessor pktprocess = new DefaultLB(pb); // use for pb
     private ApplicationId appId;
     private PortNumber inPort, outPort;
 
@@ -72,17 +63,16 @@ public class AppComponent {
         log.info("Default LB started");
     }
 
-    private final Map<PortNumber, MacAddress> serverAddresses = new HashMap<>();
-    private final HashMap<IpAddress, MacAddress> clientMap = new HashMap<IpAddress, MacAddress>();
-
     // Override the packetProcessor class
     private class DefaultLB implements PacketProcessor {
 
-        PortingAlgorithm algorithm;
+        protected final Map<PortNumber, MacAddress> serverAddresses;
+        protected final Map<IpAddress, MacAddress> clientMap;
 
-        public DefaultLB(PortingAlgorithm algorithm) {
+        public DefaultLB() {
             super();
-            this.algorithm = algorithm;
+            serverAddresses = new HashMap<>();
+            clientMap = new HashMap<>();
         }
 
         @Override
@@ -166,13 +156,13 @@ public class AppComponent {
                 IPacket innerPayload = payload.getPayload();
 
                 // not a TCP or ICMP packet
-                if(innerPayload == null || !(innerPayload instanceof TCP || innerPayload instanceof ICMP)) {
+                if(!(innerPayload instanceof TCP || innerPayload instanceof ICMP)) {
                     return;
                 }
 
                 if(!serverAddresses.containsValue(sourceMacAddress)) {
                     // This is a client request
-                    PortNumber targetServerPort = algorithm.out(serverAddresses, deviceService, switchId);
+                    PortNumber targetServerPort = out();
 
                     if (targetServerPort == null) {
                         return;
@@ -211,7 +201,7 @@ public class AppComponent {
                                 .matchIPDst(srcIpPrefix)
                                 .matchTcpDst(TpPort.tpPort(tcpPayload.getSourcePort())); // responding to the client request sent from this port
 
-                    } else if (innerPayload instanceof ICMP) {
+                    } else {
 
                         c2s_selector
                                 .matchEthType(Ethernet.TYPE_IPV4)
@@ -268,6 +258,54 @@ public class AppComponent {
 
             // all other packets are dropped
 
+        }
+
+        protected PortNumber out() {
+            return PortNumber.portNumber(2);
+        }
+    }
+
+    private class RoundRobin extends DefaultLB {
+
+        private Iterator<PortNumber> iterator;
+
+        public RoundRobin() {
+            super();
+        }
+
+        @Override
+        protected PortNumber out() {
+            Set<PortNumber> outPorts = serverAddresses.keySet();
+
+            if (outPorts == null || outPorts.size() == 0) {
+                return null;
+            } else if (iterator == null || !iterator.hasNext()) {
+                iterator = List.copyOf(outPorts).iterator();
+            }
+            return iterator.next();
+        }
+    }
+
+    private class RandomisedStatic extends DefaultLB {
+
+        private Iterator<PortNumber> iterator;
+
+        public RandomisedStatic() {
+            super();
+        }
+
+        @Override
+        protected PortNumber out() {
+            Set<PortNumber> outPorts = serverAddresses.keySet();
+
+            if (outPorts == null || outPorts.size() == 0) {
+                return null;
+            } else if (iterator == null || !iterator.hasNext()) {
+                List<PortNumber> outPortsList = new ArrayList<>(outPorts);
+                Collections.shuffle(outPortsList);
+                iterator = outPortsList.iterator();
+            }
+            return iterator.next();
         }
     }
 
