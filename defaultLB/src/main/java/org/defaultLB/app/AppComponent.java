@@ -280,7 +280,7 @@ public class AppComponent {
         protected PortNumber out() {
             Set<PortNumber> outPorts = serverAddresses.keySet();
 
-            if (outPorts == null || outPorts.size() == 0) {
+            if (outPorts.size() == 0) {
                 return null;
             } else if (iterator == null || !iterator.hasNext()) {
                 iterator = List.copyOf(outPorts).iterator();
@@ -301,7 +301,7 @@ public class AppComponent {
         protected PortNumber out() {
             Set<PortNumber> outPorts = serverAddresses.keySet();
 
-            if (outPorts == null || outPorts.size() == 0) {
+            if (outPorts.size() == 0) {
                 return null;
             } else if (iterator == null || !iterator.hasNext()) {
                 List<PortNumber> outPortsList = new ArrayList<>(outPorts);
@@ -314,9 +314,6 @@ public class AppComponent {
 
     private class PacketBased extends DefaultLB {
 
-        private Iterator<PortNumber> iterator;
-        private Map<PortNumber, Integer> portThresholds;
-
         public PacketBased() {
             super();
         }
@@ -325,23 +322,20 @@ public class AppComponent {
         public PortNumber out() {
             Set<PortNumber> outPorts = serverAddresses.keySet();
 
-            if (outPorts == null || outPorts.size() == 0) {
+            if (outPorts.size() == 0) {
                 return null;
             }
-            iterator = List.copyOf(outPorts).iterator();
+            Iterator<PortNumber> iterator = List.copyOf(outPorts).iterator();
 
             if (deviceService == null || deviceService.getPortStatistics(switchId).size() == 0) {
                 return null;
             }
-            portThresholds = new HashMap<>();
+            Map<PortNumber, Integer> portThresholds = new HashMap<>();
 
             // count how many flow rules exist for each server, to update map of port thresholds
             for (PortStatistics stat : deviceService.getPortStatistics(switchId)) {
-                Iterator<PortNumber> serverAddressesIterator = outPorts.iterator();
 
-                while (serverAddressesIterator.hasNext()) {
-                    PortNumber checkPort = serverAddressesIterator.next();
-
+                for (PortNumber checkPort : outPorts) {
                     if (stat.portNumber() == checkPort) {
                         if (!portThresholds.containsKey(checkPort)) {
                             portThresholds.put(checkPort, 1);
