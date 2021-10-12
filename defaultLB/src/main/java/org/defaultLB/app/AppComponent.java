@@ -40,7 +40,7 @@ public class AppComponent {
     private DeviceService deviceService;
 
     // Change packet processor subclass here to change the algorithm.
-    PacketProcessor pktprocess = new RandomisedStatic();
+    PacketProcessor pktprocess = new PacketHash();
 
     private ApplicationId appId;
     private PortNumber inPort, outPort;
@@ -323,11 +323,14 @@ public class AppComponent {
 
         @Override
         protected PortNumber out() {
+            if (serverAddresses.size() == 0) {
+                return PortNumber.portNumber(2);
+            }
             int pkthash = srcIpPrefix.hashCode();
             if (srcPort != null) {
                 pkthash += srcPort.hashCode();
             }
-            return PortNumber.portNumber(pkthash % serverAddresses.size());
+            return PortNumber.portNumber((pkthash % serverAddresses.size()) + 2);
         }
     }
 
