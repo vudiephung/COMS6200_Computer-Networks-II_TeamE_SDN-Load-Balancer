@@ -10,6 +10,7 @@ import org.onosproject.net.DeviceId;
 import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DeviceService;
+import org.onosproject.net.device.PortStatistics;
 import org.onosproject.net.flow.*;
 import org.onosproject.net.packet.*;
 import org.osgi.service.component.annotations.Activate;
@@ -38,6 +39,7 @@ public class AppComponent {
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     private DeviceService deviceService;
 
+    // Change packet processor subclass here to change the algorithm.
     PacketProcessor pktprocess = new RandomisedStatic();
 
     private ApplicationId appId;
@@ -68,6 +70,7 @@ public class AppComponent {
 
         protected final Map<PortNumber, MacAddress> serverAddresses;
         protected final Map<IpAddress, MacAddress> clientMap;
+        protected DeviceId switchId;
 
         public DefaultLB() {
             super();
@@ -305,6 +308,59 @@ public class AppComponent {
                 Collections.shuffle(outPortsList);
                 iterator = outPortsList.iterator();
             }
+            return iterator.next();
+        }
+    }
+
+    private class PacketBased extends DefaultLB {
+
+        private Iterator<PortNumber> iterator;
+        private Map<PortNumber, Integer> portThresholds;
+
+        public PacketBased() {
+            super();
+        }
+
+        @Override
+        public PortNumber out() {
+            Set<PortNumber> outPorts = serverAddresses.keySet();
+
+            if (outPorts == null || outPorts.size() == 0) {
+                return null;
+            }
+            iterator = List.copyOf(outPorts).iterator();
+
+            if (deviceService == null || deviceService.getPortStatistics(switchId).size() == 0) {
+                return null;
+            }
+            portThresholds = new HashMap<>();
+
+            // count how many flow rules exist for each server, to update map of port thresholds
+            for (PortStatistics stat : deviceService.getPortStatistics(switchId)) {
+                Iterator<PortNumber> serverAddressesIterator = outPorts.iterator();
+
+                while (serverAddressesIterator.hasNext()) {
+                    PortNumber checkPort = serverAddressesIterator.next();
+
+                    if (stat.portNumber() == checkPort) {
+                        if (!portThresholds.containsKey(checkPort)) {
+                            portThresholds.put(checkPort, 1);
+                        } else {
+                            portThresholds.replace(checkPort, portThresholds.get(checkPort) + 1);
+                        }
+                    }
+                }
+            }
+
+            while (iterator.hasNext()) {
+                PortNumber port = iterator.next();
+
+                if (portThresholds.containsKey(port) && portThresholds.get(port) < 1) {
+                    return port;
+                }
+            }
+
+            iterator = List.copyOf(outPorts).iterator();
             return iterator.next();
         }
     }
