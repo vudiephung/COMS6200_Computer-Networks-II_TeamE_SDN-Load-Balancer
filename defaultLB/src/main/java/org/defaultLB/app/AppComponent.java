@@ -71,6 +71,8 @@ public class AppComponent {
         protected final Map<PortNumber, MacAddress> serverAddresses;
         protected final Map<IpAddress, MacAddress> clientMap;
         protected DeviceId switchId;
+        protected IpPrefix srcIpPrefix;
+        protected TpPort srcPort;
 
         public DefaultLB() {
             super();
@@ -153,7 +155,7 @@ public class AppComponent {
 
                 // handle TCP packets (web requests etc)
 
-                IpPrefix srcIpPrefix = IpPrefix.valueOf(((IPv4) payload).getSourceAddress(), 32);
+                srcIpPrefix = IpPrefix.valueOf(((IPv4) payload).getSourceAddress(), 32);
                 IpPrefix dstIpPrefix = IpPrefix.valueOf(((IPv4) payload).getDestinationAddress(), 32);
 
                 IPacket innerPayload = payload.getPayload();
@@ -185,6 +187,7 @@ public class AppComponent {
 
                     if(innerPayload instanceof TCP) {
                         TCP tcpPayload = (TCP)innerPayload;
+                        srcPort = TpPort.tpPort(tcpPayload.getSourcePort());
 
                         c2s_selector
                                 .matchEthType(Ethernet.TYPE_IPV4) // these match a "TCP packet"
@@ -193,7 +196,7 @@ public class AppComponent {
                                 .matchEthSrc(sourceMacAddress) // the "source" client
                                 .matchIPSrc(srcIpPrefix)
                                 .matchIPDst(dstIpPrefix)
-                                .matchTcpSrc(TpPort.tpPort(tcpPayload.getSourcePort())) // the clients source port
+                                .matchTcpSrc(srcPort) // the clients source port
                                 .matchTcpDst(TpPort.tpPort(tcpPayload.getDestinationPort())); // the port on the server
 
                         s2c_selector
@@ -202,7 +205,7 @@ public class AppComponent {
                                 .matchEthDst(sourceMacAddress) // the server sends to the clients MAC address
                                 .matchInPort(targetServerPort) // this is the physical port the server is on (easier to use than MAC IMO, as there is one server per port)
                                 .matchIPDst(srcIpPrefix)
-                                .matchTcpDst(TpPort.tpPort(tcpPayload.getSourcePort())); // responding to the client request sent from this port
+                                .matchTcpDst(srcPort); // responding to the client request sent from this port
 
                     } else {
 
@@ -312,6 +315,22 @@ public class AppComponent {
         }
     }
 
+    private class PacketHash extends DefaultLB {
+
+        public PacketHash() {
+            super();
+        }
+
+        @Override
+        protected PortNumber out() {
+            int pkthash = srcIpPrefix.hashCode();
+            if (srcPort != null) {
+                pkthash += srcPort.hashCode();
+            }
+            return PortNumber.portNumber(pkthash % serverAddresses.size());
+        }
+    }
+
     private class PacketBased extends DefaultLB {
 
         public PacketBased() {
@@ -319,7 +338,7 @@ public class AppComponent {
         }
 
         @Override
-        public PortNumber out() {
+        protected PortNumber out() {
             Set<PortNumber> outPorts = serverAddresses.keySet();
 
             if (outPorts.size() == 0) {
