@@ -1,11 +1,7 @@
 package org.defaultLB.app;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import org.onlab.packet.*;
 import org.onosproject.core.ApplicationId;
@@ -14,6 +10,7 @@ import org.onosproject.net.DeviceId;
 import org.onosproject.net.Port;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DeviceService;
+import org.onosproject.net.device.PortStatistics;
 import org.onosproject.net.flow.*;
 import org.onosproject.net.packet.*;
 import org.osgi.service.component.annotations.Activate;
@@ -42,13 +39,9 @@ public class AppComponent {
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     private DeviceService deviceService;
 
-    // LB algorithms initialisation
-    RoundRobin rr = new RoundRobin();
-    RandomisedStatic rs = new RandomisedStatic();
-    PacketBased pb = new PacketBased();
+    // Change packet processor subclass here to change the algorithm.
+    PacketProcessor pktprocess = new PacketHash();
 
-    //PacketProcessor pktprocess = new DefaultLB(rr); // use for rr
-    PacketProcessor pktprocess = new DefaultLB(pb); // use for pb
     private ApplicationId appId;
     private PortNumber inPort, outPort;
 
@@ -72,17 +65,19 @@ public class AppComponent {
         log.info("Default LB started");
     }
 
-    private final Map<PortNumber, MacAddress> serverAddresses = new HashMap<>();
-    private final HashMap<IpAddress, MacAddress> clientMap = new HashMap<IpAddress, MacAddress>();
-
     // Override the packetProcessor class
     private class DefaultLB implements PacketProcessor {
 
-        PortingAlgorithm algorithm;
+        protected final Map<PortNumber, MacAddress> serverAddresses;
+        protected final Map<IpAddress, MacAddress> clientMap;
+        protected DeviceId switchId;
+        protected IpPrefix srcIpPrefix;
+        protected TpPort srcPort;
 
-        public DefaultLB(PortingAlgorithm algorithm) {
+        public DefaultLB() {
             super();
-            this.algorithm = algorithm;
+            serverAddresses = new HashMap<>();
+            clientMap = new HashMap<>();
         }
 
         @Override
@@ -160,19 +155,19 @@ public class AppComponent {
 
                 // handle TCP packets (web requests etc)
 
-                IpPrefix srcIpPrefix = IpPrefix.valueOf(((IPv4) payload).getSourceAddress(), 32);
+                srcIpPrefix = IpPrefix.valueOf(((IPv4) payload).getSourceAddress(), 32);
                 IpPrefix dstIpPrefix = IpPrefix.valueOf(((IPv4) payload).getDestinationAddress(), 32);
 
                 IPacket innerPayload = payload.getPayload();
 
                 // not a TCP or ICMP packet
-                if(innerPayload == null || !(innerPayload instanceof TCP || innerPayload instanceof ICMP)) {
+                if(!(innerPayload instanceof TCP || innerPayload instanceof ICMP)) {
                     return;
                 }
 
                 if(!serverAddresses.containsValue(sourceMacAddress)) {
                     // This is a client request
-                    PortNumber targetServerPort = algorithm.out(serverAddresses, deviceService, switchId);
+                    PortNumber targetServerPort = out();
 
                     if (targetServerPort == null) {
                         return;
@@ -192,6 +187,7 @@ public class AppComponent {
 
                     if(innerPayload instanceof TCP) {
                         TCP tcpPayload = (TCP)innerPayload;
+                        srcPort = TpPort.tpPort(tcpPayload.getSourcePort());
 
                         c2s_selector
                                 .matchEthType(Ethernet.TYPE_IPV4) // these match a "TCP packet"
@@ -200,7 +196,7 @@ public class AppComponent {
                                 .matchEthSrc(sourceMacAddress) // the "source" client
                                 .matchIPSrc(srcIpPrefix)
                                 .matchIPDst(dstIpPrefix)
-                                .matchTcpSrc(TpPort.tpPort(tcpPayload.getSourcePort())) // the clients source port
+                                .matchTcpSrc(srcPort) // the clients source port
                                 .matchTcpDst(TpPort.tpPort(tcpPayload.getDestinationPort())); // the port on the server
 
                         s2c_selector
@@ -209,9 +205,9 @@ public class AppComponent {
                                 .matchEthDst(sourceMacAddress) // the server sends to the clients MAC address
                                 .matchInPort(targetServerPort) // this is the physical port the server is on (easier to use than MAC IMO, as there is one server per port)
                                 .matchIPDst(srcIpPrefix)
-                                .matchTcpDst(TpPort.tpPort(tcpPayload.getSourcePort())); // responding to the client request sent from this port
+                                .matchTcpDst(srcPort); // responding to the client request sent from this port
 
-                    } else if (innerPayload instanceof ICMP) {
+                    } else {
 
                         c2s_selector
                                 .matchEthType(Ethernet.TYPE_IPV4)
@@ -268,6 +264,120 @@ public class AppComponent {
 
             // all other packets are dropped
 
+        }
+
+        protected PortNumber out() {
+            return PortNumber.portNumber(2);
+        }
+    }
+
+    private class RoundRobin extends DefaultLB {
+
+        private Iterator<PortNumber> iterator;
+
+        public RoundRobin() {
+            super();
+        }
+
+        @Override
+        protected PortNumber out() {
+            Set<PortNumber> outPorts = serverAddresses.keySet();
+
+            if (outPorts.size() == 0) {
+                return null;
+            } else if (iterator == null || !iterator.hasNext()) {
+                iterator = List.copyOf(outPorts).iterator();
+            }
+            return iterator.next();
+        }
+    }
+
+    private class RandomisedStatic extends DefaultLB {
+
+        private Iterator<PortNumber> iterator;
+
+        public RandomisedStatic() {
+            super();
+        }
+
+        @Override
+        protected PortNumber out() {
+            Set<PortNumber> outPorts = serverAddresses.keySet();
+
+            if (outPorts.size() == 0) {
+                return null;
+            } else if (iterator == null || !iterator.hasNext()) {
+                List<PortNumber> outPortsList = new ArrayList<>(outPorts);
+                Collections.shuffle(outPortsList);
+                iterator = outPortsList.iterator();
+            }
+            return iterator.next();
+        }
+    }
+
+    private class PacketHash extends DefaultLB {
+
+        public PacketHash() {
+            super();
+        }
+
+        @Override
+        protected PortNumber out() {
+            if (serverAddresses.size() == 0) {
+                return PortNumber.portNumber(2);
+            }
+            int pkthash = srcIpPrefix.hashCode();
+            if (srcPort != null) {
+                pkthash += srcPort.hashCode();
+            }
+            return PortNumber.portNumber((pkthash % serverAddresses.size()) + 2);
+        }
+    }
+
+    private class PacketBased extends DefaultLB {
+
+        public PacketBased() {
+            super();
+        }
+
+        @Override
+        protected PortNumber out() {
+            Set<PortNumber> outPorts = serverAddresses.keySet();
+
+            if (outPorts.size() == 0) {
+                return null;
+            }
+            Iterator<PortNumber> iterator = List.copyOf(outPorts).iterator();
+
+            if (deviceService == null || deviceService.getPortStatistics(switchId).size() == 0) {
+                return null;
+            }
+            Map<PortNumber, Integer> portThresholds = new HashMap<>();
+
+            // count how many flow rules exist for each server, to update map of port thresholds
+            for (PortStatistics stat : deviceService.getPortStatistics(switchId)) {
+
+                for (PortNumber checkPort : outPorts) {
+                    if (stat.portNumber() == checkPort) {
+                        if (!portThresholds.containsKey(checkPort)) {
+                            portThresholds.put(checkPort, 1);
+                        } else {
+                            portThresholds.replace(checkPort, portThresholds.get(checkPort) + 1);
+                        }
+                    }
+                }
+            }
+
+            while (iterator.hasNext()) {
+                PortNumber port = iterator.next();
+
+                if (portThresholds.containsKey(port) && portThresholds.get(port) < 1) {
+                    return port;
+                }
+            }
+
+            iterator = List.copyOf(outPorts).iterator();
+            return iterator.next();
         }
     }
 
