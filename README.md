@@ -3,12 +3,18 @@ This load balancer implements several load balancing algorithms all of which det
 
 ## Architecture
 
-![Architecture of Load Balancer](/img/architecture.png)
+### Example Network Architecture
+
+![Example Network Architecture](/img/architecture.png)
 
 Where:
 * h1 is a client connecting to the setup. There may be several clients connecting to the load balancer concurrently.
 * s1 is the switch / load balancer.
 * v1, v2 and v3 are the servers being load balanced. There can be any number of these servers being load balanced.
+
+### Load Balancer Class Diagram
+
+![Architecture of Load Balancer](/img/coms6200_class_diagram.png)
 
 ## Processes
 
@@ -57,4 +63,4 @@ To select a chosen port, the source IP address and TCP port of the packet will b
 
 To select a chosen port, the threshold values must be checked against by first counting how many flow entries exists for each port.  If there are less than 300 flow entries that applies to a port from a list of port, then that port is selected.  The list of ports iterates from port 2 to port 3 to port 4 to port 2 etc.  If all ports are full, then port 2 will be chosen.
 
-![Flow diagram of PacketBased](/img/packet_based.png)
+![Flow diagram of PacketBased](/img/packetbased_flowchart.png)
