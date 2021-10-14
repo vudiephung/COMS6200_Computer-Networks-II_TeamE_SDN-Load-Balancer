@@ -51,8 +51,10 @@ In Randomised Static, the load balancer simply selects a port randomly.
 
 ### PacketHash
 
-To select a chosen port, the source IP address and TCP port of the packet will be hashed using the Java hashCode() and modulo. This is then used to select a port from a list of ports. As a result, packets with the same IP will be assigned to the same server.
+To select a chosen port, the source IP address and TCP port of the packet will be hashed using the Java hashCode() and modulo. This is then used to select a port from a list of ports. As a result, packets with the same source IP address and TCP port will be assigned to the same server (or just IP address if packet is ICMP).
 
 ### PacketBased
 
 To select a chosen port, the threshold values must be checked against by first counting how many flow entries exists for each port.  If there are less than 300 flow entries that applies to a port from a list of port, then that port is selected.  The list of ports iterates from port 2 to port 3 to port 4 to port 2 etc.  If all ports are full, then port 2 will be chosen.
+
+![Flow diagram of PacketBased](/img/packet_based.png)
