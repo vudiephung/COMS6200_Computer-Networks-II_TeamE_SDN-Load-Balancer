@@ -55,3 +55,4 @@ To select a chosen port, the source IP address and TCP port of the packet will b
 
 ### PacketBased
 
+To select a chosen port, the threshold values must be checked against by first counting how many flow entries exists for each port.  If there are less than 300 flow entries that applies to a port from a list of port, then that port is selected.  The list of ports iterates from port 2 to port 3 to port 4 to port 2 etc.  If all ports are full, then port 2 will be chosen.
